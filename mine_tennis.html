@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<HTML>
+<HEAD>
+<style type="text/css">
+	#c{ padding:20px 20px;
+		margin:0px 0px;
+	}
+</style>
+</HEAD>
+
+<script language="JavaScript">
+window.document.onmousemove = Mouse;
+window.document.onmousedown = mouseDown;
+window.document.onmouseup = mouseUp;
+window.document.oncontextmenu = function () { //範囲内ならコンテキストメニュー出さない
+	if(0 <= mouseX && mouseX <= 640 && 0 <= mouseY && mouseY <= 480) return false;
+}
+
+var i,j;
+var timeCount = 0;
+var f = 0; //フレーム数
+var fps = 0;
+var mouseX,mouseY; //canvas内のマウス座標
+var fieldX,fieldY; //fieldのマスの座標
+var life = 4;
+var leftDown = false; //左ボタンを押しているかどうか
+var mineNum = 0; //旗立てた数
+var onField = false; //fieldの上にいるかどうか
+var play = false;
+var game = false;
+var mineDeath = false;
+var lastCell = [0, 0];
+var clear = false;
+var translate = false;
+var item = new Array(100);
+var itemlist = "ABCDEFGLRTUVWX";
+//var itemlist = "X";
+
+//アイテム関連
+var cover = false;
+var numRotate = 0;
+var rotate = false;
+var grand = false;
+var crossColor = false;
+
+var gameArea = new Object(); //CSSのpaddingとmarginで変わる
+ gameArea.x = 20;
+ gameArea.y = 20;
+
+var racket = new Object(); //ラケット
+ racket.x = 0;
+ racket.y = 460;
+ racket.width = 80;
+ racket.height = 10;
+
+var ball = new Object(); //ボール
+ ball.x = 100;
+ ball.y = 100;
+ ball.vectorX = 1;
+ ball.vectorY = 1;
+ ball.speed = 1;
+ ball.r = 20;
+
+var resetButton = new Object();  //リセットボタン
+ resetButton.x = 250;
+ resetButton.y = 35;
+ resetButton.width = 75;
+ resetButton.height = 20;
+
+var accelButton = new Object(); //加速ボタン
+ accelButton.x = 350;
+ accelButton.y = 35;
+ accelButton.width = 75;
+ accelButton.height = 20;
+
+var zerocheck = new Array(30);
+var field = new Array(30); //マス
+for(i=0; i<field.length; i++) {
+	zerocheck[i] = new Array(16);
+	field[i] = new Array(16);
+	for(j=0; j<field[i].length; j++) {
+		field[i][j] = new Array(2);
+		field[i][j][0] = 0; //状態 {0:close, 1:flag, 2:Open, 3:破壊地雷}
+		field[i][j][1] = 0; //属性 {0,1,2,3,4,5,6,7,8,9:地雷}
+	}
+}
+
+function drawDisplay() { //画面描画
+	var canvas = document.getElementById('c');
+	var ctx = canvas.getContext('2d');
+	
+	/********** アイテム 回転 **********/
+	if(rotate) {
+		ctx.rotate(Math.PI / 180);
+		numRotate++;
+	}
+	
+	var back = 'rgb(152, 100,80)';
+	
+	//背景
+	ctx.beginPath();
+	ctx.fillStyle = back;
+	ctx.fillRect(-320, -240, 640, 480);
+	
+	var grad = ctx.createLinearGradient(-320, 140, -320, 240);
+	grad.addColorStop(0, 'rgb(120,120,120)');
+	grad.addColorStop(1, 'rgb(50,50,50)');
+	ctx.fillStyle = grad;
+	ctx.rect(-300, 140, 600, 100);
+	ctx.fill();
+	//ctx.fillStyle = 'rgb(80, 80, 80)';
+	//ctx.fillRect(20, 380, 600, 100);
+	
+	//フィールド
+	ctx.fillStyle = 'rgb(150, 150, 150)';
+	ctx.fillRect(-300, -180, 600, 320);
+	for(i = 0; i < 30; i++) {
+		for(j = 0; j < 16; j++) {
+			ctx.font = "20px 'Times New Roman Bold'";
+			if(field[i][j][0] == 2) {
+				switch (field[i][j][1]){ //数字の色
+					case 0:
+						ctx.fillStyle = "white";
+						break;
+					case 1:
+						ctx.fillStyle = "blue";
+						break;
+					case 2:
+						ctx.fillStyle = "green";
+						break;
+					case 3:
+						ctx.fillStyle = "red";
+						break;
+					case 4:
+						ctx.fillStyle = "navy";
+						break;
+					case 5:
+						ctx.fillStyle = "maroon";
+						break;
+					case 6:
+						ctx.fillStyle = "Teal";
+						break;
+					case 7:
+						ctx.fillStyle = "fuchsia";
+						break;
+					case 8:
+						ctx.fillStyle = "purple";
+						break;
+					case 9:
+						ctx.fillStyle = "black";
+						break;
+				}
+				ctx.fillText(field[i][j][1], -300 + i * 20 + 4, -180 + j * 20 + 16 );
+			} else {
+				switch(field[i][j][0]){
+					case 0:
+						ctx.fillStyle = 'rgb(200,200,200)'; //開いてない
+						break;
+					case 1:
+						ctx.fillStyle = 'rgb(255,100,100)'; //旗
+						break;
+					case 3:
+						ctx.fillStyle = 'rgb(100,50,50)'; //破壊地雷
+						break;
+				}
+				ctx.fillRect(-300 + i * 20, -180 + j * 20, 20, 20);
+			}
+		}
+	}
+	
+	if(onField && leftDown) { //左クリック押しっぱ
+			if(field[fieldX][fieldY][0] == 0) {
+			ctx.fillStyle = 'rgb(150,150,150)';
+			ctx.fillRect(-300 + fieldX * 20, -180 + fieldY * 20, 20, 20);
+		}
+	}
+	
+	ctx.moveTo(-300, -180); //格子
+	for(i = 0; i < 30; i++) {
+		ctx.lineTo(-300 + i * 20, -180);
+		ctx.lineTo(-300 + i * 20, -180 + 320);
+		ctx.lineTo(-300 + (i+1) * 20, -180 + 320);
+	}
+	ctx.lineTo(-300 + i *20, 60);
+	
+	for(i = 0; i < 16; i++) {
+		ctx.lineTo(-300 + 600, -180 + i * 20);
+		ctx.lineTo(-300 , -180 + i * 20);
+		ctx.lineTo(-300 , -180 + (i+1) * 20);
+	}
+	ctx.stroke();
+	
+	//ラケット
+	ctx.fillStyle = 'rgb(60, 150, 60)';
+	ctx.fillRect(racket.x -320 , racket.y -240, racket.width, racket.height);
+	
+	//文字
+	ctx.font = "24px 'Times New Roman'";
+	ctx.fillStyle = "blue";
+	ctx.fillText("Time:" + timeCount, 80, -216);
+	ctx.fillText("FPS:" + fps, 220, -216);
+	ctx.fillText("LIFE:", -300, -190);
+	ctx.fillText("Mine:" + mineNum, -20, -216);
+	
+	//LIFE
+	for(i=0; i<life; i++) {
+		ctx.beginPath();
+		ctx.arc(-230 + i * 25, -197, 10, 0, Math.PI * 2, false);
+		ctx.fillStyle = 'rgb(255, 200, 0)';
+		ctx.fill();
+	}
+	
+	/***** ボタン *****/
+	if(resetButton.x <= mouseX && mouseX <= resetButton.x + resetButton.width && resetButton.y <= mouseY && mouseY <= resetButton.y + resetButton.height) {
+		ctx.fillStyle = 'rgb(150,255,150)';
+		ctx.fillRect(resetButton.x -320, resetButton.y -240, resetButton.width, resetButton.height);
+	}
+	ctx.strokeStyle = "black";
+	ctx.strokeRect(resetButton.x -320, resetButton.y -240, resetButton.width, resetButton.height);
+	ctx.font = "20px 'Times New Roman'";
+	ctx.fillStyle = "black";
+	ctx.fillText("Reset", resetButton.x + 16 -320, resetButton.y + 16 -240);
+	
+	if(accelButton.x <= mouseX && mouseX <= accelButton.x + accelButton.width && accelButton.y <= mouseY && mouseY <= accelButton.y + accelButton.height) {
+		ctx.fillStyle = 'rgb(150,255,150)';
+		ctx.fillRect(accelButton.x -320, accelButton.y -240, accelButton.width, accelButton.height);
+	}
+	ctx.strokeStyle = "black";
+	ctx.strokeRect(accelButton.x -320, accelButton.y -240, accelButton.width, accelButton.height);
+	ctx.font = "20px 'Times New Roman'";
+	ctx.fillStyle = "black";
+	ctx.fillText("Accel", accelButton.x + 16 -320, accelButton.y + 16 -240);
+	
+	/***** GAME OVER / GAME CLEAR *****/
+	if(!game) {
+		for(i=0;i<30;i++) { //マークチェック（バツ印）
+			for(j=0;j<16;j++) {
+				if((field[i][j][0] == 1 || field[i][j][0] == 3) && field[i][j][1] != 9) {
+					ctx.beginPath();
+					ctx.moveTo(-300 + i * 20, -180 + j * 20);
+					ctx.lineTo(-300 + i * 20 + 20, -180 + j * 20 + 20);
+					ctx.lineTo(-300 + i * 20, -180 + j * 20 + 20);
+					ctx.lineTo(-300 + i * 20 + 20, -180 + j * 20);
+					ctx.stroke();
+				}
+			}
+		}
+		
+		if(mineDeath) { //赤丸
+			ctx.beginPath();
+			ctx.arc(-300 + lastCell[0] * 20 + 10, -180 + lastCell[1] * 20 + 10, 9, 0, Math.PI * 2, false);
+			ctx.fillStyle = 'rgb(255, 0, 0)';
+			ctx.fill();
+		}
+		
+		ctx.beginPath();
+		ctx.font = "48px 'Times New Roman'";
+		if(clear) {
+			ctx.fillStyle = "yellow";
+			ctx.fillText("GAME CLEAR", -140, 190);
+		} else {
+			ctx.fillStyle = "red";
+			ctx.fillText("GAME OVER", -140, 190);
+		}
+		ctx.closePath();
+	}
+	
+	//アイテム
+	var i = 0;
+	while(item[i].next != 0) {
+		i = item[i].next;
+		ctx.beginPath();
+		ctx.arc(item[i].x -320, item[i].y -240, item[i].r, 0, Math.PI * 2, false);
+		ctx.fillStyle = 'rgb(100, 200 , 100)';
+		ctx.fill();
+		
+		ctx.font = "16px 'Times New Roman'";
+		ctx.fillStyle = "black";
+		ctx.fillText(item[i].type ,item[i].x - item[i].r + 3 -320 , item[i].y + item[i].r - 4 -240);
+		ctx.closePath();
+	}
+	
+	/************** アイテム 十字色 *****************/
+	if(clossColor && ball.y <= 380) {
+		var ballX = Math.floor((ball.x-20)/20);
+		var ballY = Math.floor((ball.y-60)/20);
+		ctx.globalAlpha = 0.6;
+		switch (field[ballX][ballY][1]){ //数字の色
+			case 0:
+				ctx.fillStyle = "white";
+				break;
+			case 1:
+				ctx.fillStyle = "blue";
+				break;
+			case 2:
+				ctx.fillStyle = "green";
+				break;
+			case 3:
+				ctx.fillStyle = "red";
+				break;
+			case 4:
+				ctx.fillStyle = "navy";
+				break;
+			case 5:
+				ctx.fillStyle = "maroon";
+				break;
+			case 6:
+				ctx.fillStyle = "Teal";
+				break;
+			case 7:
+				ctx.fillStyle = "fuchsia";
+				break;
+			case 8:
+				ctx.fillStyle = "purple";
+				break;
+			case 9:
+				ctx.fillStyle = "black";
+				break;
+		}
+		ctx.fillRect(-300 + ballX * 20, -180, 20, 320);
+		ctx.fillRect(-300, -180 + ballY * 20, 600, 20);
+		ctx.globalAlpha = 1;
+		ctx.closePath();
+	}
+	
+	//ボール
+	ctx.beginPath();
+	ctx.arc(ball.x -320, ball.y -240, ball.r, 0, Math.PI * 2, false);
+	ctx.fillStyle = 'rgb(255, ' + parseInt(200/ball.speed) +', 0)';
+	ctx.fill();
+	
+	/************** アイテム カバー *****************/
+	if(cover) {
+		//左
+		ctx.beginPath();
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+		var trendL = (racket.y - ball.y) / ((racket.x + racket.width / 2) - (ball.x - 40));
+		var interL = ball.y - trendL * (ball.x - 40);
+		
+		if(trendL * 20 + interL < 60) {
+			ctx.moveTo( (60 - interL) / trendL - 320, 60 - 240);
+			ctx.lineTo(20 - 320, 60 - 240);
+		} else if(racket.y < trendL * 20 + interL) {
+			if(620 < (60 - interL) / trendL) {
+				ctx.moveTo(620 - 320, 620 * trendL + interL - 240);
+				ctx.lineTo(620 - 320, 60 - 240);
+			} else {
+				ctx.moveTo( (60 - interL) / trendL - 320, 60 - 240);
+			}
+			ctx.lineTo(20 - 320, 60 - 240);
+		} else {
+			ctx.moveTo(20 - 320, trendL * 20 + interL - 240);
+		}
+		ctx.lineTo(20 - 320, racket.y - 240);
+		ctx.lineTo(racket.x + racket.width / 2 - 320, racket.y - 240);
+		ctx.closePath();
+		ctx.fill();
+		
+		//右
+		ctx.beginPath();
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+		var trendR = (racket.y - ball.y) / ((racket.x + racket.width / 2) - (ball.x + 40));
+		var interR = ball.y - trendR * (ball.x + 40);
+		
+		if(trendR * 620 + interR < 60) {
+			ctx.moveTo( (60 - interR) / trendR - 320, 60 - 240);
+			ctx.lineTo(620 - 320, 60 - 240);
+		} else if(racket.y < trendR * 620 + interR) {
+			if(20 > (60 - interR) / trendR) {
+				ctx.moveTo(20 - 320, trendR * 20 + interR - 240);
+				ctx.lineTo(20 - 320, 60 - 240);
+			} else {
+				ctx.moveTo( (60 - interR) / trendR - 320, 60 - 240);
+			}
+			ctx.lineTo(620 - 320, 60 - 240);
+		} else {
+			ctx.moveTo(620 - 320, trendR * 620 + interR - 240);
+		}
+		ctx.lineTo(620 - 320, racket.y - 240);
+		ctx.lineTo(racket.x + racket.width / 2 - 320, racket.y - 240);
+		ctx.closePath();
+		ctx.fill();
+	}
+	
+	ctx.closePath();
+	f++;
+}
+
+function Game() {
+	if(play == false) return;
+	
+	var i,j,k;
+	
+	//アイテム移動
+	i = 0;
+	while(item[i].next != 0) {
+		i = item[i].next;
+		item[i].y += item[i].fallspeed;
+		if(item[i].y > 480 - item[i].r) { //床で消滅
+			item[item[i].back].next = item[i].next;
+			item[item[i].next].back = item[i].back;
+			item[i].back = 0;
+			item[i].next = 0;
+			item[0].num--;
+		}
+		
+		if(racket.x <= item[i].x && item[i].x <= racket.x + racket.width && racket.y - item[i].r <= item[i].y) { //ラケットキャッチ
+			item[item[i].back].next = item[i].next;
+			item[item[i].next].back = item[i].back;
+			item[i].back = 0;
+			item[i].next = 0;
+			item[0].num--;
+			
+			EffectItem(item[i].type);
+		}
+	}
+	
+	//ボール移動
+	ball.x += ball.vectorX * ball.speed;
+	ball.y += ball.vectorY * ball.speed;
+	
+	if(racket.x <= ball.x && ball.x <= racket.x + racket.width && racket.y - ball.r <= ball.y && ball.y <= racket.y + racket.height) { //ラケット返球
+		ball.vectorY = -Math.abs(ball.vectorY);
+		var sita = (ball.x - racket.x - (racket.width / 2)) / (racket.width / 2);
+		ball.vectorX = ball.vectorX * Math.cos(Math.PI * sita / 2) - ball.vectorY * Math.sin(Math.PI * sita / 2);
+		var vol = Math.sqrt(Math.pow(ball.vectorX, 2) + Math.pow(ball.vectorY, 2));
+		ball.vectorX /= vol;
+		ball.vectorY /= vol;
+	}
+	
+	if(ball.x <= 20 + ball.r) ball.vectorX = Math.abs(ball.vectorX); //左の壁
+	else if(20 + 600 - ball.r <= ball.x ) ball.vectorX = -Math.abs(ball.vectorX); //右の壁
+	if(ball.y <= 60 + ball.r) ball.vectorY = Math.abs(ball.vectorY); //上の壁
+	else if(60 + 300 + 120 - ball.r <= ball.y) { //下
+		FallInit();
+		if(life < 0) GameOver();
+	}
+	
+	for(i=0;i<30;i++) { //ブロックに衝突
+		for(j=0;j<16;j++) {
+			if(field[i][j][0] == 1) {
+				if(20 + i * 20 - ball.r <= ball.x && ball.x <= 20 + i * 20 + 20 + ball.r && 60 + j * 20 - ball.r <= ball.y && ball.y <= 60 + j * 20 + 20 + ball.r) {
+					if(field[i][j][1] != 9) {
+						GameOver();
+						return;
+					}
+					field[i][j][0] = 3;
+					ball.speed += 0.25;
+					mineNum--;
+					if(ball.x <= 20 + i * 20) ball.vectorX *= -1;
+					else if(20 + i * 20 + 20 <= ball.x) ball.vectorX *= -1;
+					if(ball.y <= 60 + j * 20) ball.vectorY *= -1;
+					else if(60 + j * 20 + 20 <= ball.y) ball.vectorY *= -1;
+					
+					//アイテム出現
+					k = 0;
+					var back = 0;
+					while(true)
+					{
+						if(item[k].next == 0) {
+							if(item[0].num != 0 && back == 0) back = k;
+							if(item[k + 1].used == false)
+							{
+								k++;
+								break;
+							}
+							else k++;
+						}
+						else
+						{
+							k = item[k].next;
+						}
+					}
+					item[back].next = k;
+					item[k].back = back;
+					item[k].used = true;
+					item[k].x = i * 20 + 20 + 20/2;
+					item[k].y = j * 20 + 60 + 20/2;
+					item[0].num++;
+					return;
+				}
+			}
+		}
+	}
+	
+	for(i=0;i<30;i++) { //クリア判定
+		for(j=0;j<16;j++) {
+			if(field[i][j][1] == 9 && field[i][j][0] != 3) return;
+		}
+	}
+	GameClear();
+}
+
+function Mouse(event) { //マウス移動
+	mouseX = event.pageX - gameArea.x - 8;
+	mouseY = event.pageY - gameArea.y - 8;
+	
+	if(grand == true) { //上下反転時
+		mouseX = 640 - mouseX;
+		mouseY = 480 - mouseY;
+	}
+	
+	//ラケット座標
+	if(mouseX < 20 + racket.width/2) racket.x = 20;
+	else if(mouseX > 620 - racket.width/2) racket.x = 620 - racket.width;
+	else racket.x = mouseX - racket.width/2;
+	
+	//フィールド判定
+	if(20 <= mouseX && mouseX <= 620 && 60 <= mouseY && mouseY <= 380) {
+		onField = true;
+		fieldX = Math.floor((mouseX-20)/20);
+		fieldY = Math.floor((mouseY-60)/20);
+	} else {
+		onField = false;
+	}
+}
+
+function mouseDown(event) { //マウス押す
+	if(event.button == 2){ //右クリック
+		if(onField && game) {
+			if(play == false) { //ボールを撃ち出す
+				shootBall();
+			}
+			
+			if(field[Math.floor((mouseX-20)/20)][Math.floor((mouseY-60)/20)][0] == 1){
+				field[Math.floor((mouseX-20)/20)][Math.floor((mouseY-60)/20)][0] = 0;
+			} else if(field[fieldX][fieldY][0] == 0) {
+				field[Math.floor((mouseX-20)/20)][Math.floor((mouseY-60)/20)][0] = 1;
+			}
+		}
+	}
+	else if(event.button == 0) leftDown = true;
+}
+
+function mouseUp(event) { //マウス離す
+	if(leftDown == true) { //左クリック
+		leftDown = false;
+		if(onField && game) {
+			if(play == false) { //ボールを撃ち出す
+				shootBall();
+			}
+			
+			if(field[fieldX][fieldY][0] == 0){
+				field[Math.floor((mouseX-20)/20)][Math.floor((mouseY-60)/20)][0] = 2;
+				
+				if(field[fieldX][fieldY][1] == 9) { //地雷開いた
+					mineDeath = true;
+					
+					lastCell[0] = fieldX; //踏んだマス
+					lastCell[1] = fieldY;
+					
+					GameOver();
+				} else if(field[fieldX][fieldY][1] == 0) { //0開いた
+					while(true) {
+						check = false;
+						for( i = 0; i < 30; i++ ) {
+							for( j = 0; j < 16; j++ ) {
+								if(field[i][j][1] == 0 && field[i][j][0] == 2 && zerocheck[i][j] == false) {
+									zerocheck[i][j] = true;
+									check = true;
+									if(i != 0) field[i-1][j][0] = 2;
+									if(i != 29)field[i+1][j][0] = 2;
+									if(j != 0) field[i][j-1][0] = 2;
+									if(j != 15)field[i][j+1][0] = 2;
+									if(i != 0 && j != 0) field[i-1][j-1][0] = 2;
+									if(i != 0 && j != 15)field[i-1][j+1][0] = 2;
+									if(i != 29 && j != 0)field[i+1][j-1][0] = 2;
+									if(i != 29 && j != 15)field[i+1][j+1][0] = 2;
+								}
+							}
+						}
+						if(check == false) break;
+					}
+				}
+			}
+			//ボタン
+		} else if(resetButton.x <= mouseX && mouseX <= resetButton.x + resetButton.width && resetButton.y <= mouseY && mouseY <= resetButton.y + resetButton.height) {
+			clearInterval(timerGame);
+			clearInterval(timerDraw);
+			clearInterval(timerCount);
+			Initialize();
+		} else if(accelButton.x <= mouseX && mouseX <= accelButton.x + accelButton.width && accelButton.y <= mouseY && mouseY <= accelButton.y + accelButton.height) {
+			ball.speed += 0.4;
+		}
+	}
+}
+
+function shootBall() {
+	InitBall();
+	ball.vectorX = mouseX - ball.x;
+	ball.vectorY = mouseY - ball.y;
+	var vol = Math.sqrt(Math.pow(ball.vectorX, 2) + Math.pow(ball.vectorY, 2));
+	ball.vectorX /= vol;
+	ball.vectorY /= vol;
+	play=true;
+	timerGame = setInterval(Game, 10);
+}
+
+function EffectItem(type) {
+	var canvas = document.getElementById('c');
+	var ctx = canvas.getContext('2d');
+	
+	switch(type) {
+		case "A": //ボールが小さくなる
+			ball.r -= 5;
+			if(ball.r <= 0) ball.r = 2;
+			break;
+		case "B": //ボールが大きくなる
+			ball.r += 5;
+			if(ball.r > 30) ball.r = 30;
+			break;
+		case "C": //カバー
+			if(cover) cover = false;
+			else cover = true;
+			break;
+		case "D": //ボールスピードダウン
+			ball.speed -= 1;
+			if(ball.speed <= 0) ball.speed = 1;
+			break;
+		case "E": //ラケットの幅が狭まる
+			racket.width *= 0.8;
+			if(racket.width < 10) racke.width = 10;
+			break;
+		case "F": //ライフ減る
+			life--;
+			if(life < 0) life = 0;
+			break;
+		case "G": //上下反転
+			ctx.rotate(Math.PI);
+			if(grand) grand = false;
+			else grand = true;
+			break;
+		case "L": //1UP
+			life++;
+			break;
+		case "R": //画面回転
+			if(rotate) {
+				ctx.rotate(Math.PI / 180 * (360 - numRotate%360));
+				numRotate = 0;
+				rotate = false;
+			}
+			else rotate = true;
+			break;
+		case "T": //タイム減少
+			timeCount -= 100;
+			break;
+		case "U": //ボールスピードアップ
+			ball.speed += 1;
+			break;
+		case "V": //ラケットが上昇する
+			racket.y -= 20;
+			if(racket.y < 60) racket.y = 60;
+			break;
+		case "W": //ラケットの幅が広がる
+			racket.width *= 1.2;
+			if(racket.width > 640 - 40) racke.width = 640 - 40;
+			break;
+		case "X": //十字カラー
+			if(clossColor) clossColor = false;
+			else clossColor = true;
+			break;
+		default :
+			break;
+	}
+}
+
+function InitBall() {
+	ball.x = 640 / 2
+	ball.y = 450;
+	ball.vectorX = 1;
+	ball.vectorY = -1;
+	ball.r = 5;
+	ball.speed = 1;
+}
+
+function InitRacket() {
+	racket.x = 0;
+	racket.y = 460;
+	racket.width = 80;
+	racket.height = 10;
+}
+
+function InitItem() {
+	var i;
+	for(i = 0; i < 100; i++) {
+		item[i] = new Object();
+		item[i].used = false;
+		item[i].x = 0;
+		item[i].y = 0;
+		item[i].r = 10;
+		item[i].fallspeed = 1;
+		item[i].back = 0;
+		item[i].next = 0;
+		item[i].num = 0;
+		
+		item[i].type = itemlist[Math.floor(Math.random() * itemlist.length)];
+	}
+}
+
+function GameOver() {
+	game = false;
+	play = false;
+	clearInterval(timerGame);
+	clearInterval(timerCount);
+}
+
+function GameClear() {
+	game = false;
+	play = false;
+	clear = true;
+	clearInterval(timerCount);
+	
+}
+
+function FallInit() {
+	clearInterval(timerGame);
+	play = false;
+	InitBall();
+	InitRacket();
+	life--;
+	resetItem();
+}
+
+function resetItem() {
+	var canvas = document.getElementById('c');
+	var ctx = canvas.getContext('2d');
+	
+	cover = false;
+	clossColor = false;
+	if(grand) {
+		ctx.rotate(Math.PI);
+		grand = false;
+	
+	}
+	if(rotate) {
+		ctx.rotate(Math.PI / 180 * (360 - numRotate%360));
+		numRotate = 0;
+		rotate = false;
+	}
+}
+
+function Initialize(){ //初期化
+	for(i=0;i<30;i++) { //フィールドリセット
+		for(j=0;j<16;j++) {
+			field[i][j][0] = 0;
+			field[i][j][1] = 0;
+		}
+	}
+	
+	mineNum = 0;
+	while(mineNum < 99) { //地雷設置
+		var x = Math.floor(Math.random() * 30);
+		var y = Math.floor(Math.random() * 16);
+		if(field[x][y][1] == 0) {
+			field[x][y][1] = 9;
+			mineNum++;
+		}
+	}
+	
+	for(i=0;i<30;i++) { //数字挿入
+		for(j=0;j<16;j++) {
+			var n = 0;
+			if(field[i][j][1] != 9) {
+				if(0 <= i - 1){ if(field[i-1][j][1] == 9) n++;}
+				if(0 <= i - 1 && 0 <= j - 1){ if(field[i-1][j-1][1] == 9) n++;}
+				if(0 <= j - 1){ if(field[i][j-1][1] == 9) n++;}
+				if(i + 1 < 30 && 0 <= j - 1){ if(field[i+1][j-1][1] == 9) n++;}
+				if(i + 1 < 30){ if(field[i+1][j][1] == 9) n++;}
+				if(i + 1 < 30 && j + 1 < 16){ if(field[i+1][j+1][1] == 9) n++;}
+				if(j + 1 < 16){ if(field[i][j+1][1] == 9) n++;}
+				if(0 <= i - 1 && j + 1 < 16){ if(field[i-1][j+1][1] == 9) n++;}
+				field[i][j][1] = n;
+			}
+		}
+	}
+	
+	for( i = 0; i < 30; i++) {
+		for( j = 0; j < 16; j++) {
+			zerocheck[i][j] = false;
+		}
+	}
+	
+	InitBall();
+	InitRacket();
+	InitItem();
+	resetItem();
+	life = 4;
+	play = false;
+	game = true;
+	mineDeath = false;
+	timeCount = 0;
+	timerCount = setInterval(timer1,1000);
+	timerDraw = setInterval(drawDisplay,14);
+	
+	if(translate == false) {
+		var canvas = document.getElementById('c');
+		var ctx = canvas.getContext('2d');
+		ctx.translate(320,240);
+		translate = true;
+	}
+}
+
+function timer1(){
+	timeCount++;
+	fps = f;
+	f = 0;
+}
+
+</script>
+
+<BODY onload="Initialize()">
+<canvas id="c" width="640" height="480"></canvas>
+</BODY>
+</HTML>
