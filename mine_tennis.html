@@ -34,6 +34,18 @@ var clear = false;
 var translate = false;
 var item = new Array(100);
 var itemlist = "ABCDEFGLRTUVWX";
+var FONT_COLOR = [
+    "whilte",
+    "blue",
+    "green",
+    "red",
+    "navy",
+    "maroon",
+    "Teal",
+    "fuchsia",
+    "purple",
+    "black"
+];
 
 //アイテム関連
 var cover = false;
@@ -110,45 +122,14 @@ function drawDisplay() {
     //ctx.fillStyle = 'rgb(80, 80, 80)';
     //ctx.fillRect(20, 380, 600, 100);
     
-    //フィールド
+    //Field
     ctx.fillStyle = 'rgb(150, 150, 150)';
     ctx.fillRect(-300, -180, 600, 320);
     for(i = 0; i < 30; i++) {
         for(j = 0; j < 16; j++) {
             ctx.font = "20px 'Times New Roman Bold'";
             if(field[i][j][0] == 2) {
-                switch (field[i][j][1]){ //数字の色
-                    case 0:
-                        ctx.fillStyle = "white";
-                        break;
-                    case 1:
-                        ctx.fillStyle = "blue";
-                        break;
-                    case 2:
-                        ctx.fillStyle = "green";
-                        break;
-                    case 3:
-                        ctx.fillStyle = "red";
-                        break;
-                    case 4:
-                        ctx.fillStyle = "navy";
-                        break;
-                    case 5:
-                        ctx.fillStyle = "maroon";
-                        break;
-                    case 6:
-                        ctx.fillStyle = "Teal";
-                        break;
-                    case 7:
-                        ctx.fillStyle = "fuchsia";
-                        break;
-                    case 8:
-                        ctx.fillStyle = "purple";
-                        break;
-                    case 9:
-                        ctx.fillStyle = "black";
-                        break;
-                }
+		ctx.fillStyle = FONT_COLOR[ field[i][j][1] ];
                 ctx.fillText(field[i][j][1], -300 + i * 20 + 4, -180 + j * 20 + 16 );
             } else {
                 switch(field[i][j][0]){
@@ -156,7 +137,7 @@ function drawDisplay() {
                         ctx.fillStyle = 'rgb(200,200,200)'; //開いてない
                         break;
                     case 1:
-                        ctx.fillStyle = 'rgb(255,100,100)'; //旗
+                        ctx.fillStyle = 'rgb(255,100,100)'; //Flag
                         break;
                     case 3:
                         ctx.fillStyle = 'rgb(100,50,50)'; //破壊地雷
@@ -210,7 +191,8 @@ function drawDisplay() {
     }
     
     /***** ボタン *****/
-    if(resetButton.x <= mouseX && mouseX <= resetButton.x + resetButton.width && resetButton.y <= mouseY && mouseY <= resetButton.y + resetButton.height) {
+    if(resetButton.x <= mouseX && mouseX <= resetButton.x + resetButton.width
+    && resetButton.y <= mouseY && mouseY <= resetButton.y + resetButton.height) {
         ctx.fillStyle = 'rgb(150,255,150)';
         ctx.fillRect(resetButton.x -320, resetButton.y -240, resetButton.width, resetButton.height);
     }
@@ -220,7 +202,8 @@ function drawDisplay() {
     ctx.fillStyle = "black";
     ctx.fillText("Reset", resetButton.x + 16 -320, resetButton.y + 16 -240);
     
-    if(accelButton.x <= mouseX && mouseX <= accelButton.x + accelButton.width && accelButton.y <= mouseY && mouseY <= accelButton.y + accelButton.height) {
+    if(accelButton.x <= mouseX && mouseX <= accelButton.x + accelButton.width
+    && accelButton.y <= mouseY && mouseY <= accelButton.y + accelButton.height) {
         ctx.fillStyle = 'rgb(150,255,150)';
         ctx.fillRect(accelButton.x -320, accelButton.y -240, accelButton.width, accelButton.height);
     }
@@ -284,38 +267,7 @@ function drawDisplay() {
         var ballX = Math.floor((ball.x-20)/20);
         var ballY = Math.floor((ball.y-60)/20);
         ctx.globalAlpha = 0.6;
-        switch (field[ballX][ballY][1]){ //数字の色
-            case 0:
-                ctx.fillStyle = "white";
-                break;
-            case 1:
-                ctx.fillStyle = "blue";
-                break;
-            case 2:
-                ctx.fillStyle = "green";
-                break;
-            case 3:
-                ctx.fillStyle = "red";
-                break;
-            case 4:
-                ctx.fillStyle = "navy";
-                break;
-            case 5:
-                ctx.fillStyle = "maroon";
-                break;
-            case 6:
-                ctx.fillStyle = "Teal";
-                break;
-            case 7:
-                ctx.fillStyle = "fuchsia";
-                break;
-            case 8:
-                ctx.fillStyle = "purple";
-                break;
-            case 9:
-                ctx.fillStyle = "black";
-                break;
-        }
+	ctx.fillStyle = FONT_COLOR[ field[ballX][ballY][1] ];
         ctx.fillRect(-300 + ballX * 20, -180, 20, 320);
         ctx.fillRect(-300, -180 + ballY * 20, 600, 20);
         ctx.globalAlpha = 1;
